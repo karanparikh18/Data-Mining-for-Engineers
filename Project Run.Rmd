@@ -1,0 +1,311 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+title: "R Notebook"
+output: html_notebook
+
+Load the Libraries
+```{r}
+library(dplyr)
+library(randomForest)
+library(caTools)
+library("class")
+library("caret")
+library(ggplot2)
+library(Amelia)
+library(ggcorrplot)
+library(pkgsearch)
+library(tidyverse)
+library(dlstats)
+library(ROCR)
+library(pROC)
+library(ggplot2)
+library(dplyr)
+library(ggcorrplot)
+library(rpart)
+library(data.table)
+library(mltools)
+library(psych)
+library(ggplot2)
+library(scatterplot3d)
+library(plotrix)
+library(openxlsx)
+library(GPArotation)
+library(car)
+library(dplyr)
+library(kernlab)
+library(MASS)
+library(lattice)
+library(ggplot2)
+library(rpart.plot)
+library(caret)
+library(rsq)
+```
+
+```{r}
+data <- read.csv("C:/Users/karan/Desktop/DM.CSV",header=TRUE)
+dim(data)
+head(data)
+
+```
+Viualization
+```{r}
+
+summary(data)
+sapply(data,class)
+any(is.na(data))
+missmap(data)
+ggplot(data = data, aes(classe,fill="row"))+ geom_bar()
+ggplot(data = data, aes(roll_belt))+ geom_histogram(color="Blue",fill="Green")
+
+```
+Random Forest
+```{r}
+starttime<- Sys.time()
+set.seed(2000)
+sample = sample.split(data$classe, SplitRatio = .70)
+train = subset(data, sample == TRUE)
+test  = subset(data, sample == FALSE)
+dim(train)
+dim(test)
+rf <- randomForest(classe~  yaw_belt+roll_belt +pitch_belt+total_accel_belt+accel_belt_y+roll_arm+magnet_dumbbell_x+magnet_forearm_y+magnet_forearm_z ,data=train)
+rf
+pred = predict(rf, newdata=test[-59], type = "class")
+confusionMatrix(pred, test$classe)
+endtime<- Sys.time()
+mean(pred==test$classe)
+cm = table(pred,test[,52])
+cm
+time.taken.rf <-endtime-starttime
+time.taken.rf <- round(as.numeric(time.taken.knn),2)
+print(time.taken.rf)
+```
+
+
+
+
+
+
+ME PCA
+
+```{r}
+wpm.df <- read.csv("C:/Users/karan/Desktop/DM.csv",header = TRUE, stringsAsFactors = FALSE)
+```
+
+```{r}
+Z <- function(x) {
+return ((x - min(x)) / (max(x) - min(x))) }
+a<-as.data.frame(lapply(y[,1:53],Z))
+
+ggplot(data = a, aes(gyros_forearm_z))+ geom_histogram(color="Blue",fill="Green")
+ggplot(data = a, aes(roll_belt))+ geom_histogram(color="Blue",fill="Green")
+ggcorrplot(cor(a))
+```
+
+
+
+```{r}
+wpn.df_train <- wpm_n[1:70,]
+wpn.df_test <- wpm_n[71:100,]
+```
+
+```{r}
+wpm_train_labels <- wpm.df[1:70, 1]
+wpm_test_labels <- wpm.df[71:100, 1] 
+
+```
+
+
+```{r}
+pca <- prcomp(t(wpm_n),scale=TRUE)
+pca$x[,c(1,2,3)]
+plot(pca$x[,1], pca$x[,2])
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100,1)
+barplot(pca.var.per,main="scree plot", xlab="principal component",ylab="percentage variation")
+pca.data <- data.frame(sample=(pca$x), 
+                  X=pca$x[,1],
+                  Y=pca$x[,2],
+                  Z=pca$x[,3])
+
+  
+loading_scores<-pca$rotation[,1]
+parameter_scores<- abs(loading_scores)
+parameter_score_ranked <- sort(parameter_scores, decreasing = TRUE)
+pc_var <- (pca$sdev^2)/sum(pca$sdev^2)
+plot(pc_var, xlab = "Principal Component", ylab = "Proportion of Variance Explained", type = "b")
+plot(pca, main = "Principal Component Analysis")
+
+```
+
+
+```{r}
+wpm2.df <- read.csv("C:/Users/karan/Desktop/DM.csv",header = TRUE, stringsAsFactors = FALSE)
+
+wpm2.df
+
+
+
+
+
+wpm2.df <- wpm2.df %>%
+      mutate(new_window = ifelse(new_window == "no",0,1))
+
+
+wpm2.df[is.na(wpm2.df)] <- 0
+
+```
+KNN
+
+```{r}
+df <- read.csv("C:/Users/karan/Desktop/DM2.csv",TRUE,",")
+head(df)
+start_time<-Sys.time()
+ran <- sample(1:nrow(df), 0.9*nrow(df))
+ran
+nor <- function(x){
+  (x- min(x))/ (max(x)- min(x))
+}
+
+nor_DM <- as.data.frame(lapply(df[,c(1:52)], nor))
+
+summary(nor_DM)
+
+df_train <- nor_DM[ran,]
+df_test <- nor_DM[-ran,]
+
+df_target_category <- df[ran,53]
+df_test_category <- df[-ran,53]
+df_test_category
+
+
+
+pr <- knn(df_train,df_test,cl=df_target_category,k=63)
+pr
+
+
+tab <- table(pr,df_test_category)
+tab
+
+
+acc <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+acc(tab)
+end_time<-Sys.time()
+time.taken.knn <-end_time-start_time
+time.taken.knn <- round(as.numeric(time.taken.knn),2)
+print(time.taken.knn)
+
+```
+
+
+
+
+SVM
+```{r}
+y <- read.csv("C:/Users/karan/Desktop/DM2.csv",TRUE,",")
+y
+str(y)
+start_tym<-Sys.time()
+y$classe <- as.numeric(y$classe)
+y
+str(y)
+
+normalize <- function(x) {
+  return((x-min(x))/(max(x) - min(x)))
+}
+
+z <- as.data.frame(lapply(y[,1:53], normalize))
+z
+
+summary(z)
+str(z)
+
+colnames(z)
+
+
+z$classe <- as.factor(z$classe)
+
+z$classe
+
+set.seed(3033)
+intrain <- createDataPartition(z$classe, p=0.5 , list = FALSE)
+training <- z[intrain, ]
+testing <- z[-intrain, ]
+dim(training)
+dim(testing)
+
+
+
+trctrl <- trainControl('repeatedcv',number=10,repeats=3)
+svm_linear <- train(classe~.,data= training, 
+                  method =  "svmLinear",
+                  trControl = trctrl, 
+                  tuneLength = "10")
+svm_linear
+
+test_pred <- predict(svm_linear , newdata = testing)
+test_pred
+
+
+confusionMatrix(table(test_pred ,testing$classe))
+end_tym<-Sys.time()
+time.taken.SVM <-end_tym-start_tym
+time.taken.SVM <- round(as.numeric(time.taken.SVM),2)
+print(time.taken.SVM)
+```
+Decision Tree
+
+
+```{r}
+dt<- read.csv(file="Example_WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv", header=TRUE, sep=",")
+starttym<-Sys.time()
+
+str(dt)
+
+
+dt_n<-nrow(dt)
+dt_n_train<-round(0.7*dt_n)
+
+set.seed(123)
+train_indices <- sample(1:dt_n, dt_n_train)
+train <- dt[train_indices, ]  
+test <- dt[-train_indices, ]
+
+
+colnames(train)
+dt_train_1h <- one_hot(as.data.table(train))
+colnames(dt_train_1h)
+
+
+df <- dplyr::select_if(dt_train_1h, is.numeric)
+r <- cor(df, use="complete.obs")
+round(r,2)
+ggcorrplot(r)
+
+
+model <- rpart(formula = classe ~ num_window+yaw_belt+roll_belt +pitch_belt+total_accel_belt+accel_belt_y+roll_arm+magnet_dumbbell_x+magnet_forearm_y+magnet_forearm_z,
+               data = train, 
+               method = "class")
+
+
+rpart.plot(model)
+
+
+test$pred <- predict(object = model,  
+                     newdata = test,   
+                     type = "class")
+
+
+confusionMatrix(data = test$pred,       
+                reference = test$classe)
+
+
+endtym<-Sys.time()
+time.taken.DT <-endtym-starttym
+time.taken.DT <- round(as.numeric(time.taken.DT),2)
+print(time.taken.DT)
+```
+
